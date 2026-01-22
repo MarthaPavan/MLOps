@@ -48,4 +48,5 @@ print(f"Final shape: {cleaned_df.shape}")
 print(f"Remaining nulls: {cleaned_df.isna().sum().sum()}")
 
 # Save
+
 cleaned_df.to_csv('./data/cleaned_data.csv', index=False)
