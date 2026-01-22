@@ -39,7 +39,7 @@ def main():
     # Save Artifacts
     os.makedirs("artifacts", exist_ok=True)
     joblib.dump(model, "artifacts/model.pkl")
-    joblib.dump(model_columns, "artifacts/model_columns.pkl")
+    joblib.dump(model_columns, "artifacts/columns.pkl")
 
     # ---------------------------------------------------------
     # PART 2: DYNAMIC INPUT PARSING
