@@ -1,4 +1,4 @@
-name: Diabetic Model Training Pipeline
+name: Diabetic Model Training and Deployment Test
 
 on:
   push:
@@ -9,13 +9,12 @@ on:
 jobs:
   build-and-train:
     runs-on: ubuntu-latest
-
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
     - name: Set up Python
-      uses: actions/checkout@v4
+      uses: actions/setup-python@v4
       with:
         python-version: '3.10'
 
@@ -24,13 +23,12 @@ jobs:
         python -m pip install --upgrade pip
         pip install pandas numpy scikit-learn joblib
 
-    - name: Run Training and Prediction
+    - name: Run Training
       run: |
-        # Note: Since the script expects a CSV file, ensure it is in the repo 
-        # or mock it for testing.
-        # We pass a sample list to the script as requested in your previous requirement.
-        python train.py "[55 Caucasian Female 35 1 15 0 0 0 9 None '>7' Yes No]"
-        ls -la 
+        # Ensure the artifacts directory exists
+        mkdir -p artifacts
+        python train.py
+        ls -la artifacts/
 
     - name: Upload Model Artifacts
       uses: actions/upload-artifact@v4
@@ -39,4 +37,42 @@ jobs:
         path: |
           artifacts/model.pkl
           artifacts/model_columns.pkl
-          artifacts/metrics.json
+
+  test-prediction:
+    needs: build-and-train
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Download Model Artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: diabetic-model-package
+        path: artifacts/
+
+    - name: Install Backend Dependencies
+      run: |
+        pip install flask pandas joblib scikit-learn
+
+    - name: Start Flask Backend
+      run: |
+        # Run backend in background; redirect output to logs
+        python backend.py > backend.log 2>&1 &
+        # Wait for the server to initialize
+        sleep 5
+
+    - name: Test Prediction with Curl
+      run: |
+        curl -X POST http://127.0.0.1:5003/predict \
+          -H "Content-Type: application/json" \
+          -d '{"features": [55, "Caucasian", "Female", 35, 1, 15, 0, 0, 0, 9, "None", ">7", "Yes", "No"]}'
+
+    - name: Check Backend Logs on Failure
+      if: failure()
+      run: cat backend.log
