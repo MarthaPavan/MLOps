@@ -1,9 +1,7 @@
-name: Diabetic Model Training and Deployment Test
+name: Diabetic Model CI/CD Pipeline
 
 on:
   push:
-    branches: [ "master" ]
-  pull_request:
     branches: [ "master" ]
 
 jobs:
@@ -12,67 +10,64 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.10'
-
     - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install pandas numpy scikit-learn joblib
-
+      run: pip install pandas numpy scikit-learn joblib
     - name: Run Training
       run: |
-        # Ensure the artifacts directory exists
         mkdir -p artifacts
         python train.py
-        ls -la artifacts/
-
-    - name: Upload Model Artifacts
+    - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
         name: diabetic-model-package
-        path: |
-          artifacts/model.pkl
-          artifacts/model_columns.pkl
+        path: artifacts/
 
-  test-prediction:
+  test-backend:
     needs: build-and-train
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
-
-    - name: Download Model Artifacts
+    - name: Download Artifacts
       uses: actions/download-artifact@v4
       with:
         name: diabetic-model-package
         path: artifacts/
-
     - name: Install Backend Dependencies
-      run: |
-        pip install flask pandas joblib scikit-learn
-
+      run: pip install flask pandas joblib scikit-learn
     - name: Start Flask Backend
       run: |
-        # Run backend in background; redirect output to logs
         python backend.py > backend.log 2>&1 &
-        # Wait for the server to initialize
         sleep 5
-
-    - name: Test Prediction with Curl
+    - name: Test Prediction
       run: |
         curl -X POST http://127.0.0.1:5003/predict \
           -H "Content-Type: application/json" \
           -d '{"features": [55, "Caucasian", "Female", 35, 1, 15, 0, 0, 0, 9, "None", ">7", "Yes", "No"]}'
 
-    - name: Check Backend Logs on Failure
-      if: failure()
-      run: cat backend.log
+  containerize:
+    needs: test-backend
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    - name: Download Artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: diabetic-model-package
+        path: artifacts/
+    - name: Build Docker Image
+      run: docker build -t diabetic-backend:latest .
+    - name: Verify Container
+      run: |
+        # Map Host Port 5003 to Container Port 5003
+        docker run -d -p 5003:5003 --name test-container diabetic-backend:latest
+        sleep 10
+        curl -X POST http://127.0.0.1:5003/predict \
+          -H "Content-Type: application/json" \
+          -d '{"features": [55, "Caucasian", "Female", 35, 1, 15, 0, 0, 0, 9, "None", ">7", "Yes", "No"]}'
+        docker stop test-container

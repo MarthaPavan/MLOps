@@ -8,6 +8,6 @@ RUN python -m pip install -r requirements.txt
 
 COPY . .
 
-EXPOSE 5005
+EXPOSE 5003
 
 CMD ["python", "backend.py"]
