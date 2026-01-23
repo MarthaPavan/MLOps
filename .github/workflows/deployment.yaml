@@ -2,7 +2,8 @@ name: Diabetic Model CI/CD Pipeline
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main" ]\
+    
   pull:
     branches: [ "main" ]
 
