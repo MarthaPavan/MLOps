@@ -53,5 +53,6 @@ def predict():
         # This will help you see the EXACT error in the terminal if it fails again
        return jsonify({'error': str(e), 'type': str(type(e))}), 500
 
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5003, debug=True)
