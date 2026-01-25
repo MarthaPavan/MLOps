@@ -1,0 +1,6 @@
+[core]
+    remote = cleanedremote
+['remote "cleaned-remote"']
+    url = s3://mlops-diabetic-data-demo
+['remote "cleanedremote"']
+    url = s3://mlops-diabetic-data-demo
