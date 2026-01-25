@@ -33,7 +33,6 @@ jobs:
         aws-region: us-east-1
 
     - name: Pull Data from DVC
-      run: dvc pull
       run: dvc pull -f
 
     - name: Run Training
