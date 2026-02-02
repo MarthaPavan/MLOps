@@ -28,7 +28,6 @@ jobs:
     - name: Install dependencies
       run: |
         pip install -r requirements.txt
-        # Added boto3 because MLflow requires it to talk to S3 artifact stores
         pip install boto3 dvc[s3]
 
     - name: Configure AWS Credentials
@@ -43,9 +42,9 @@ jobs:
 
     - name: Run Training
       env:
+        # We pass the env variable so train.py can pick it up via os.getenv
         MLFLOW_TRACKING_URI: ${{ env.MLFLOW_TRACKING_URI }}
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       run: |
-        # train.py logs metrics to MLflow and model to S3
         python train.py
