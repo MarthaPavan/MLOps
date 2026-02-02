@@ -7,10 +7,11 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
 
 # 1. Resolve Tracking URI
-TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://127.0.0.1:5005")
-print(f"DEBUG: Connecting to MLflow at: {TRACKING_URI}") # DO NOT REMOVE THIS UNTIL GREEN
+# TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://127.0.0.1:5005")
+tracking_uri = os.environ.get("MLFLOW_TRACKING_URI")
+print(f"DEBUG: Connecting to MLflow at: {tracking_uri}") # DO NOT REMOVE THIS UNTIL GREEN
 
-mlflow.set_tracking_uri(TRACKING_URI)
+mlflow.set_tracking_uri(tracking_uri)
 mlflow.set_experiment("Diabetes_Hospital_Stay_Training")
 
 def main():
