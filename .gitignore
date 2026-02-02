@@ -1,2 +1,3 @@
-.venv
-mlflow.db
+/venv
+/mlflow.db
+/mlruns
