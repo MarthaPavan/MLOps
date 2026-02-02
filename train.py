@@ -1,19 +1,30 @@
 import pandas as pd
 import numpy as np
 import os
-import json
 import joblib
-import sys # 1. Import sys to handle CLI arguments
+import mlflow
+import mlflow.sklearn
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
 
+import os
+import mlflow
+
+# 1. Get URI from environment variable (set by GitHub Actions)
+# 2. If not found, fall back to your manual local string
+TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://127.0.0.1:5005")
+
+mlflow.set_tracking_uri(TRACKING_URI)
+# Configure MLflow to use your local sqlite database
+# mlflow.set_tracking_uri("http://127.0.0.1:5005")
+mlflow.set_experiment("Diabetes_Hospital_Stay_Training")
+
 def main():
-    # ---------------------------------------------------------
-    # PART 1: TRAINING (Setup for the model)
-    # ---------------------------------------------------------
+
+    # PART 1: DATA PREPARATION
     
-    # Load cleaned dataset - Ensure the path matches your environment
+    # Load cleaned dataset
     df = pd.read_csv('./data/cleaned_data.csv')
 
     target = 'time_in_hospital'
@@ -31,68 +42,45 @@ def main():
     X = pd.get_dummies(X, drop_first=True)
     model_columns = list(X.columns)
 
-    # Train Model
+    # Train/Test Split
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    model = LinearRegression()
-    model.fit(X_train, y_train)
 
-    # Save Artifacts
-    os.makedirs("artifacts", exist_ok=True)
-    joblib.dump(model, "artifacts/model.pkl")
-    joblib.dump(model_columns, "artifacts/columns.pkl")
-
-    # ---------------------------------------------------------
-    # PART 2: DYNAMIC INPUT PARSING
-    # ---------------------------------------------------------
+    # PART 2: MODEL TRAINING & MLFLOW TRACKING
     
-    # Join all CLI arguments starting from index 1 to capture everything inside the brackets
-    # This handles the case where the shell might split arguments by space
-    input_args = " ".join(sys.argv[1:])
-    
-    if not input_args:
-        print("Usage: python script.py [age race gender labs procs meds outpat emer inpat diags glu a1c med change]")
-        return
+    with mlflow.start_run(run_name="Linear_Regression_Training"):
+        
+        # 1. Log Training Parameters
+        mlflow.log_param("test_size", 0.2)
+        mlflow.log_param("random_state", 42)
+        mlflow.log_param("model_type", "LinearRegression")
+        mlflow.log_param("num_features", len(features))
 
-    # Strip the brackets '[' and ']' and remove extra quotes
-    clean_input = input_args.strip("[]").replace('"', '').replace("'", "")
-    
-    # Split by space to get individual values
-    val_list = clean_input.split()
+        # 2. Train the Model
+        model = LinearRegression()
+        model.fit(X_train, y_train)
 
-    if len(val_list) != 14:
-        print(f"Error: Expected 14 values, but received {len(val_list)}.")
-        return
+        # 3. Calculate Performance Metrics
+        y_pred = model.predict(X_test)
+        mse = mean_squared_error(y_test, y_pred)
+        mae = mean_absolute_error(y_test, y_pred)
+        r2 = r2_score(y_test, y_pred)
 
-    # Convert numeric fields (indices: 0, 3, 4, 5, 6, 7, 8, 9)
-    # The rest remain as strings
-    processed_list = []
-    numeric_indices = [0, 3, 4, 5, 6, 7, 8, 9]
-    
-    for i, val in enumerate(val_list):
-        if i in numeric_indices:
-            processed_list.append(float(val))
-        else:
-            processed_list.append(val)
+        # 4. Log Metrics to MLflow
+        mlflow.log_metric("mse", mse)
+        mlflow.log_metric("mae", mae)
+        mlflow.log_metric("r2_score", r2)
 
-    # ---------------------------------------------------------
-    # PART 3: PREDICTION
-    # ---------------------------------------------------------
-    
-    # 1. Convert list to DataFrame
-    sample_df = pd.DataFrame([processed_list], columns=features)
+        # 5. Save Artifacts locally for reference
+        os.makedirs("artifacts", exist_ok=True)
+        joblib.dump(model, "artifacts/model.pkl")
+        joblib.dump(model_columns, "artifacts/columns.pkl")
+        
+        # 6. Log Artifacts and Model to MLflow Tracking Server
+        mlflow.log_artifact("artifacts/columns.pkl")
+        mlflow.sklearn.log_model(model, artifact_path="artifacts")        
 
-    # 2. Apply dummy encoding
-    sample_encoded = pd.get_dummies(sample_df)
-
-    # 3. Align with model columns (fills missing dummy columns with 0)
-    sample_encoded = sample_encoded.reindex(columns=model_columns, fill_value=0)
-
-    # 4. Get Prediction
-    prediction = model.predict(sample_encoded)
-
-    print(f"\n--- Prediction Results ---")
-    print(f"Input Received: {processed_list}")
-    print(f"Predicted days in hospital: {prediction[0]:.2f} days")
+        print(f"Training Complete. Metrics: R2: {r2:.4f}, MSE: {mse:.4f}")
+        print("Model and metrics have been logged to MLflow.")
 
 if __name__ == "__main__":
     main()
