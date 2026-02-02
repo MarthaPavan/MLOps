@@ -41,58 +41,6 @@ def main():
     joblib.dump(model, "artifacts/model.pkl")
     joblib.dump(model_columns, "artifacts/columns.pkl")
 
-    # ---------------------------------------------------------
-    # PART 2: DYNAMIC INPUT PARSING
-    # ---------------------------------------------------------
-    
-    # Join all CLI arguments starting from index 1 to capture everything inside the brackets
-    # This handles the case where the shell might split arguments by space
-    input_args = " ".join(sys.argv[1:])
-    
-    if not input_args:
-        print("Usage: python script.py [age race gender labs procs meds outpat emer inpat diags glu a1c med change]")
-        return
-
-    # Strip the brackets '[' and ']' and remove extra quotes
-    clean_input = input_args.strip("[]").replace('"', '').replace("'", "")
-    
-    # Split by space to get individual values
-    val_list = clean_input.split()
-
-    if len(val_list) != 14:
-        print(f"Error: Expected 14 values, but received {len(val_list)}.")
-        return
-
-    # Convert numeric fields (indices: 0, 3, 4, 5, 6, 7, 8, 9)
-    # The rest remain as strings
-    processed_list = []
-    numeric_indices = [0, 3, 4, 5, 6, 7, 8, 9]
-    
-    for i, val in enumerate(val_list):
-        if i in numeric_indices:
-            processed_list.append(float(val))
-        else:
-            processed_list.append(val)
-
-    # ---------------------------------------------------------
-    # PART 3: PREDICTION
-    # ---------------------------------------------------------
-    
-    # 1. Convert list to DataFrame
-    sample_df = pd.DataFrame([processed_list], columns=features)
-
-    # 2. Apply dummy encoding
-    sample_encoded = pd.get_dummies(sample_df)
-
-    # 3. Align with model columns (fills missing dummy columns with 0)
-    sample_encoded = sample_encoded.reindex(columns=model_columns, fill_value=0)
-
-    # 4. Get Prediction
-    prediction = model.predict(sample_encoded)
-
-    print(f"\n--- Prediction Results ---")
-    print(f"Input Received: {processed_list}")
-    print(f"Predicted days in hospital: {prediction[0]:.2f} days")
 
 if __name__ == "__main__":
     main()
