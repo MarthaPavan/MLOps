@@ -63,7 +63,7 @@ jobs:
     - name: Start Flask Backend
       run: |
         python backend.py > backend.log 2>&1 &
-        sleep 5
+        sleep 8
     - name: Test Prediction
       run: |
         curl -X POST http://127.0.0.1:5003/predict \
