@@ -2,14 +2,9 @@ name: Diabetic Model CI/CD Pipeline
 
 on:
   push:
-    branches: [ "dev" ]
+    branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
-
-env:
-  # The central tracking server (Your EC2/Remote IP)
-  #MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
-  MODEL_NAME: "DiabetesLRModel"
 
 jobs:
   build-and-train:
@@ -27,8 +22,8 @@ jobs:
 
     - name: Install dependencies
       run: |
-        pip install -r requirements.txt
-        pip install boto3 dvc[s3]
+        pip install pandas numpy scikit-learn joblib
+        pip install dvc[s3]
 
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v2
@@ -41,11 +36,59 @@ jobs:
       run: dvc pull -f
 
     - name: Run Training
-      env:
-        # We pass the env variable so train.py can pick it up via os.getenv
-        MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
-        # MLFLOW_TRACKING_URI: ${{ env.MLFLOW_TRACKING_URI }}
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       run: |
+        mkdir -p artifacts
         python train.py
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: diabetic-model-package
+        path: artifacts/
+
+
+  test-backend:
+    needs: build-and-train
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    - name: Download Artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: diabetic-model-package
+        path: artifacts/
+    - name: Install Backend Dependencies
+      run: pip install flask pandas joblib scikit-learn
+    - name: Start Flask Backend
+      run: |
+        python backend.py > backend.log 2>&1 &
+        sleep 8
+    - name: Test Prediction
+      run: |
+        curl -X POST http://127.0.0.1:5003/predict \
+          -H "Content-Type: application/json" \
+          -d '{"features": [55, "Caucasian", "Female", 35, 1, 15, 0, 0, 0, 9, "None", ">7", "Yes", "No"]}'
+
+  containerize:
+    needs: test-backend
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    - name: Download Artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: diabetic-model-package
+        path: artifacts/
+    - name: Build Docker Image
+      run: docker build -t diabetic-backend:latest .
+    - name: Verify Container
+      run: |
+        # Map Host Port 5003 to Container Port 5003
+        docker run -d -p 5003:5003 --name test-container diabetic-backend:latest
+        sleep 10
+        curl -X POST http://127.0.0.1:5003/predict \
+          -H "Content-Type: application/json" \
+          -d '{"features": [55, "Caucasian", "Female", 35, 1, 15, 0, 0, 0, 9, "None", ">7", "Yes", "No"]}'
+        docker stop test-container
