@@ -1,6 +1,6 @@
 [core]
-    remote = cleanedremote
-['remote "cleaned-remote"']
+    remote = dvcorigin
+['remote "origin"']
     url = s3://mlops-diabetic-data-demo
-['remote "cleanedremote"']
+['remote "dvcorigin"']
     url = s3://mlops-diabetic-data-demo
