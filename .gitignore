@@ -5,3 +5,5 @@ env/
 mlruns/
 mlartifacts/
 mlflow.db
+
+artifacts/
