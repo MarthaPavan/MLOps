@@ -9,7 +9,7 @@ app = Flask(__name__)
 # These should be in your /artifacts folder
 try:
     model = joblib.load('artifacts/model.pkl')
-    model_columns = joblib.load('artifacts/model_columns.pkl')
+    model_columns = joblib.load('artifacts/columns.pkl')
 except Exception as e:
     print(f"Error loading artifacts: {e}")
 
